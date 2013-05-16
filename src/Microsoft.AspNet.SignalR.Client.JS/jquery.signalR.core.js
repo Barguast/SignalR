@@ -302,7 +302,7 @@
         state: signalR.connectionState.disconnected,
 
         keepAliveData: {},
-        
+
         clientProtocol: "1.3",
 
         reconnectDelay: 2000,
@@ -440,10 +440,16 @@
 
                 var transportName = transports[index],
                     transport = $.type(transportName) === "object" ? transportName : signalR.transports[transportName],
+                    initializationComplete = false,
                     onFailed = function () {
-                        window.clearTimeout(connection._.onFailedTimeoutHandle);
-                        transport.stop(connection);
-                        initialize(transports, index + 1);
+
+                        // Check if we've already triggered onFailed
+                        if (!initializationComplete) {
+                            initializationComplete = true;
+                            window.clearTimeout(connection._.onFailedTimeoutHandle);
+                            transport.stop(connection);
+                            initialize(transports, index + 1);
+                        }
                     };
 
                 if (transportName.indexOf("_") === 0) {
@@ -458,28 +464,31 @@
                 }, connection.transportTimeOut);
 
                 transport.start(connection, function () { // success
-                    window.clearTimeout(connection._.onFailedTimeoutHandle);
+                    if (!initializationComplete) {
+                        initializationComplete = true;
 
-                    if (transport.supportsKeepAlive && connection.keepAliveData.activated) {
-                        signalR.transports._logic.monitorKeepAlive(connection);
+                        window.clearTimeout(connection._.onFailedTimeoutHandle);
+
+                        if (transport.supportsKeepAlive && connection.keepAliveData.activated) {
+                            signalR.transports._logic.monitorKeepAlive(connection);
+                        }
+
+                        connection.transport = transport;
+
+                        changeState(connection,
+                                    signalR.connectionState.connecting,
+                                    signalR.connectionState.connected);
+
+                        // Drain any incoming buffered messages (messages that came in prior to connect)
+                        connection._.connectingMessageBuffer.drain();
+
+                        $(connection).triggerHandler(events.onStart);
+
+                        // wire the stop handler for when the user leaves the page
+                        _pageWindow.unload(function () {
+                            connection.stop(false /* async */);
+                        });
                     }
-
-                    connection.transport = transport;
-
-                    changeState(connection,
-                                signalR.connectionState.connecting,
-                                signalR.connectionState.connected);
-
-                    // Drain any incoming buffered messages (messages that came in prior to connect)
-                    connection._.connectingMessageBuffer.drain();
-
-                    $(connection).triggerHandler(events.onStart);
-
-                    // wire the stop handler for when the user leaves the page
-                    _pageWindow.unload(function () {
-                        connection.stop(false /* async */);
-                    });
-
                 }, onFailed);
             };
 
@@ -698,7 +707,7 @@
             /// <param name="async" type="Boolean">Whether or not to asynchronously abort the connection</param>
             /// <param name="notifyServer" type="Boolean">Whether we want to notify the server that we are aborting the connection</param>
             /// <returns type="signalR" />
-            var connection = this;            
+            var connection = this;
 
             if (connection.state === signalR.connectionState.disconnected) {
                 return;
@@ -707,7 +716,6 @@
             try {
                 // Clear this no matter what
                 window.clearTimeout(connection._.onFailedTimeoutHandle);
-                connection._.onFailedTimeoutHandle = null;
 
                 if (connection.transport) {
                     if (notifyServer !== false) {

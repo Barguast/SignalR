@@ -61,11 +61,9 @@
                 return;
             }
 
-            // After connecting, if after the specified timeout there's no response stop the connection
-            // and raise on failed
-            reconnectTimeOut = window.setTimeout(function () {
-                if (opened === false) {
-                    if (reconnecting) {
+            if (reconnecting) {
+                reconnectTimeOut = window.setTimeout(function () {
+                    if (opened === false) {
                         // If we're reconnecting and the event source is attempting to connect,
                         // don't keep retrying. This causes duplicate connections to spawn.
                         if (connection.eventSource.readyState !== window.EventSource.CONNECTING &&
@@ -74,9 +72,9 @@
                             that.reconnect(connection);
                         }
                     }
-                }
-            },
-            that.timeOut);
+                },
+                that.timeOut);
+            }
 
             connection.eventSource.addEventListener("open", function (e) {
                 connection.log("EventSource connected");
