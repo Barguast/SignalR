@@ -247,7 +247,8 @@
             this._ = {
                 connectingMessageBuffer: new ConnectingMessageBuffer(this, function (message) {
                     $connection.triggerHandler(events.onReceived, [message]);
-                })
+                }),
+                onFailedTimeoutHandle: null
             };
             if (typeof (logging) === "boolean") {
                 this.logging = logging;
@@ -305,6 +306,8 @@
         clientProtocol: "1.3",
 
         reconnectDelay: 2000,
+
+        transportTimeOut: 3000,
 
         disconnectTimeout: 30000, // This should be set by the server in response to the negotiate request (30s default)
 
@@ -436,7 +439,12 @@
                 }
 
                 var transportName = transports[index],
-                    transport = $.type(transportName) === "object" ? transportName : signalR.transports[transportName];
+                    transport = $.type(transportName) === "object" ? transportName : signalR.transports[transportName],
+                    onFailed = function () {
+                        window.clearTimeout(connection._.onFailedTimeoutHandle);
+                        transport.stop(connection);
+                        initialize(transports, index + 1);
+                    };
 
                 if (transportName.indexOf("_") === 0) {
                     // Private member
@@ -444,7 +452,14 @@
                     return;
                 }
 
+                connection._.onFailedTimeoutHandle = window.setTimeout(function () {
+                    connection.log(transport.name + " timed out when trying to connect.");
+                    onFailed();
+                }, connection.transportTimeOut);
+
                 transport.start(connection, function () { // success
+                    window.clearTimeout(connection._.onFailedTimeoutHandle);
+
                     if (transport.supportsKeepAlive && connection.keepAliveData.activated) {
                         signalR.transports._logic.monitorKeepAlive(connection);
                     }
@@ -465,9 +480,7 @@
                         connection.stop(false /* async */);
                     });
 
-                }, function () {
-                    initialize(transports, index + 1);
-                });
+                }, onFailed);
             };
 
             var url = connection.url + "/negotiate";
@@ -685,13 +698,17 @@
             /// <param name="async" type="Boolean">Whether or not to asynchronously abort the connection</param>
             /// <param name="notifyServer" type="Boolean">Whether we want to notify the server that we are aborting the connection</param>
             /// <returns type="signalR" />
-            var connection = this;
+            var connection = this;            
 
             if (connection.state === signalR.connectionState.disconnected) {
                 return;
             }
 
             try {
+                // Clear this no matter what
+                window.clearTimeout(connection._.onFailedTimeoutHandle);
+                connection._.onFailedTimeoutHandle = null;
+
                 if (connection.transport) {
                     if (notifyServer !== false) {
                         connection.transport.abort(connection, async);

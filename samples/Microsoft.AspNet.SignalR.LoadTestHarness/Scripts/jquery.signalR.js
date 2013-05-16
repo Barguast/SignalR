@@ -248,7 +248,8 @@
             this._ = {
                 connectingMessageBuffer: new ConnectingMessageBuffer(this, function (message) {
                     $connection.triggerHandler(events.onReceived, [message]);
-                })
+                }),
+                onFailedTimeoutHandle: null
             };
             if (typeof (logging) === "boolean") {
                 this.logging = logging;
@@ -306,6 +307,8 @@
         clientProtocol: "1.3",
 
         reconnectDelay: 2000,
+
+        transportTimeOut: 3000,
 
         disconnectTimeout: 30000, // This should be set by the server in response to the negotiate request (30s default)
 
@@ -437,7 +440,12 @@
                 }
 
                 var transportName = transports[index],
-                    transport = $.type(transportName) === "object" ? transportName : signalR.transports[transportName];
+                    transport = $.type(transportName) === "object" ? transportName : signalR.transports[transportName],
+                    onFailed = function () {
+                        window.clearTimeout(connection._.onFailedTimeoutHandle);
+                        transport.stop(connection);
+                        initialize(transports, index + 1);
+                    };
 
                 if (transportName.indexOf("_") === 0) {
                     // Private member
@@ -445,7 +453,14 @@
                     return;
                 }
 
+                connection._.onFailedTimeoutHandle = window.setTimeout(function () {
+                    connection.log(transport.name + " timed out when trying to connect.");
+                    onFailed();
+                }, connection.transportTimeOut);
+
                 transport.start(connection, function () { // success
+                    window.clearTimeout(connection._.onFailedTimeoutHandle);
+
                     if (transport.supportsKeepAlive && connection.keepAliveData.activated) {
                         signalR.transports._logic.monitorKeepAlive(connection);
                     }
@@ -466,9 +481,7 @@
                         connection.stop(false /* async */);
                     });
 
-                }, function () {
-                    initialize(transports, index + 1);
-                });
+                }, onFailed);
             };
 
             var url = connection.url + "/negotiate";
@@ -686,13 +699,17 @@
             /// <param name="async" type="Boolean">Whether or not to asynchronously abort the connection</param>
             /// <param name="notifyServer" type="Boolean">Whether we want to notify the server that we are aborting the connection</param>
             /// <returns type="signalR" />
-            var connection = this;
+            var connection = this;            
 
             if (connection.state === signalR.connectionState.disconnected) {
                 return;
             }
 
             try {
+                // Clear this no matter what
+                window.clearTimeout(connection._.onFailedTimeoutHandle);
+                connection._.onFailedTimeoutHandle = null;
+
                 if (connection.transport) {
                     if (notifyServer !== false) {
                         connection.transport.abort(connection, async);
@@ -1132,8 +1149,6 @@
 
         supportsKeepAlive: true,
 
-        timeOut : 3000,
-
         send: function (connection, data) {
             connection.socket.send(data);
         },
@@ -1143,7 +1158,6 @@
                 opened = false,
                 that = this,
                 initialSocket,
-                timeOutHandle,
                 reconnecting = !onSuccess,
                 $connection = $(connection);
 
@@ -1168,16 +1182,9 @@
                 // Issue #1653: Galaxy S3 Android Stock Browser fails silently to establish websocket connections. 
                 if (onFailed) {
                     initialSocket = connection.socket;
-                    timeOutHandle = window.setTimeout(function () {
-                        if (initialSocket === connection.socket) {
-                            connection.log("WebSocket timed out trying to connect");
-                            onFailed();
-                        }
-                    }, that.timeOut);
                 }
 
                 connection.socket.onopen = function () {
-                    window.clearTimeout(timeOutHandle);
                     opened = true;
                     connection.log("Websocket opened");
 
@@ -1194,7 +1201,6 @@
                     // Only handle a socket close if the close is from the current socket.
                     // Sometimes on disconnect the server will push down an onclose event
                     // to an expired socket.
-                    window.clearTimeout(timeOutHandle);
 
                     if (this === connection.socket) {
                         if (!opened) {
@@ -1290,7 +1296,7 @@
                 $connection = $(connection),
                 reconnecting = !onSuccess,
                 url,
-                connectTimeOut;
+                reconnectTimeOut;
 
             if (connection.eventSource) {
                 connection.log("The connection already has an event source. Stopping it.");
@@ -1329,15 +1335,8 @@
 
             // After connecting, if after the specified timeout there's no response stop the connection
             // and raise on failed
-            connectTimeOut = window.setTimeout(function () {
+            reconnectTimeOut = window.setTimeout(function () {
                 if (opened === false) {
-                    connection.log("EventSource timed out trying to connect");
-                    connection.log("EventSource readyState: " + connection.eventSource.readyState);
-
-                    if (!reconnecting) {
-                        that.stop(connection);
-                    }
-
                     if (reconnecting) {
                         // If we're reconnecting and the event source is attempting to connect,
                         // don't keep retrying. This causes duplicate connections to spawn.
@@ -1346,8 +1345,6 @@
                             // If we were reconnecting, rather than doing initial connect, then try reconnect again
                             that.reconnect(connection);
                         }
-                    } else if (onFailed) {
-                        onFailed();
                     }
                 }
             },
@@ -1356,8 +1353,8 @@
             connection.eventSource.addEventListener("open", function (e) {
                 connection.log("EventSource connected");
 
-                if (connectTimeOut) {
-                    window.clearTimeout(connectTimeOut);
+                if (reconnectTimeOut) {
+                    window.clearTimeout(reconnectTimeOut);
                 }
 
                 transportLogic.clearReconnectTimeout(connection);
@@ -1501,8 +1498,6 @@
 
         supportsKeepAlive: true,
 
-        timeOut: 3000,
-
         start: function (connection, onSuccess, onFailed) {
             var that = this,
                 frameId = (transportLogic.foreverFrame.count += 1),
@@ -1550,19 +1545,7 @@
                     delete connection.onSuccess;
                 };
             }
-
-            // After connecting, if after the specified timeout there's no response stop the connection
-            // and raise on failed
-            window.setTimeout(function () {
-                if (connection.onSuccess) {
-                    connection.log("Failed to connect using forever frame source, it timed out after " + that.timeOut + "ms.");
-                    that.stop(connection);
-
-                    if (onFailed) {
-                        onFailed();
-                    }
-                }
-            }, that.timeOut);
+            
         },
 
         reconnect: function (connection) {

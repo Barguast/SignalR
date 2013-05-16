@@ -24,7 +24,7 @@
                 $connection = $(connection),
                 reconnecting = !onSuccess,
                 url,
-                connectTimeOut;
+                reconnectTimeOut;
 
             if (connection.eventSource) {
                 connection.log("The connection already has an event source. Stopping it.");
@@ -63,15 +63,8 @@
 
             // After connecting, if after the specified timeout there's no response stop the connection
             // and raise on failed
-            connectTimeOut = window.setTimeout(function () {
+            reconnectTimeOut = window.setTimeout(function () {
                 if (opened === false) {
-                    connection.log("EventSource timed out trying to connect");
-                    connection.log("EventSource readyState: " + connection.eventSource.readyState);
-
-                    if (!reconnecting) {
-                        that.stop(connection);
-                    }
-
                     if (reconnecting) {
                         // If we're reconnecting and the event source is attempting to connect,
                         // don't keep retrying. This causes duplicate connections to spawn.
@@ -80,8 +73,6 @@
                             // If we were reconnecting, rather than doing initial connect, then try reconnect again
                             that.reconnect(connection);
                         }
-                    } else if (onFailed) {
-                        onFailed();
                     }
                 }
             },
@@ -90,8 +81,8 @@
             connection.eventSource.addEventListener("open", function (e) {
                 connection.log("EventSource connected");
 
-                if (connectTimeOut) {
-                    window.clearTimeout(connectTimeOut);
+                if (reconnectTimeOut) {
+                    window.clearTimeout(reconnectTimeOut);
                 }
 
                 transportLogic.clearReconnectTimeout(connection);
