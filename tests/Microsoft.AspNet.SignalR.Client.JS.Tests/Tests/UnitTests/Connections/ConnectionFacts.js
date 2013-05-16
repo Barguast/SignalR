@@ -40,7 +40,7 @@ QUnit.test("connection.json is custom object after set", function () {
     QUnit.equal(con.json, customJson, "Verifies connection.json is settable to a custom object.");
 });
 
-QUnit.test("connection.json is unique on different objcets object when custom", function () {
+QUnit.test("connection.json is unique on different objects when custom", function () {
     var con1 = $.connection(),
         con2 = $.connection(),
         customJson1 = {},
@@ -51,4 +51,15 @@ QUnit.test("connection.json is unique on different objcets object when custom", 
 
     QUnit.equal(con1.json, customJson1, "Verifies connection.json is not shared when set to a custom object.");
     QUnit.equal(con2.json, customJson2, "Verifies connection.json is not shared when set to a custom object.");
+});
+
+QUnit.test("connection.transportTimeOut is unique on different objects when custom", function () {
+    var con1 = $.connection(),
+        con2 = $.connection();
+
+    con1.transportTimeOut = 1;
+    con2.transportTimeOut = 2;
+
+    QUnit.equal(con1.transportTimeOut, 1, "Verifies connection.transportTimeOut is not shared when set to a custom object.");
+    QUnit.equal(con2.transportTimeOut, 2, "Verifies connection.transportTimeOut is not shared when set to a custom object.");
 });
