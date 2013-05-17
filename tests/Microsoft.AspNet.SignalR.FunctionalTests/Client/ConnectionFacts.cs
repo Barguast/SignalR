@@ -30,7 +30,7 @@ namespace Microsoft.AspNet.SignalR.Tests
                     Assert.Equal(connection.State, Client.ConnectionState.Connected);
                 }
 
-                Assert.Equal(connection.State, Client.ConnectionState.Disconnected);
+                Assert.Equal(connection.State, Client.ConnectionState.Connected);
             }
         }
 
