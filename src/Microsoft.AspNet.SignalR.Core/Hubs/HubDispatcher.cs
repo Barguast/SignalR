@@ -258,18 +258,21 @@ namespace Microsoft.AspNet.SignalR.Hubs
             return hub.OnDisconnected();
         }
 
-        [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "A faulted task is returned.")]
+
         internal static Task<HubMethodResult> IncomingWrapped(IHubIncomingInvokerContext context)
         {
-            return Incoming(context).ContinueWith<HubMethodResult>((t) =>
+            var tcs = new TaskCompletionSource<HubMethodResult>();
+
+            Incoming(context).ContinueWith((t) =>
             {
                 if (t.IsFaulted)
-                    return new HubMethodResult(t.Exception, true);
+                    tcs.TrySetUnwrappedException(t.Exception);
                 else if (t.IsCanceled)
-                    return new HubMethodResult(new TaskCanceledException(), true);
+                    tcs.TrySetCanceled();
                 else
-                    return new HubMethodResult(t.Result, false);
+                    tcs.TrySetResult(HubMethodResult.Result(t.Result));
             });
+            return tcs.Task;
         }
 
         [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "A faulted task is returned.")]
@@ -456,12 +459,14 @@ namespace Microsoft.AspNet.SignalR.Hubs
                 Id = request.Id,
             };
 
-            if (result.IsError)
-                hubResult.Error = result.Result;
-            else
-                hubResult.Result = result.Result;
-
-            if (error != null)
+            if (result != null)
+            {
+                if (result.IsError)
+                    hubResult.Error = result.Value;
+                else
+                    hubResult.Result = result.Value;
+            }
+            else if (error != null)
             {
                 _counters.ErrorsHubInvocationTotal.Increment();
                 _counters.ErrorsHubInvocationPerSec.Increment();
