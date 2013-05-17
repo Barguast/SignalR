@@ -23,7 +23,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
         /// </summary>
         /// <param name="invoke">A function that invokes a server-side hub method.</param>
         /// <returns>A wrapped function that invokes a server-side hub method.</returns>
-        Func<IHubIncomingInvokerContext, Task<object>> BuildIncoming(Func<IHubIncomingInvokerContext, Task<object>> invoke);
+        Func<IHubIncomingInvokerContext, Task<HubMethodResult>> BuildIncoming(Func<IHubIncomingInvokerContext, Task<HubMethodResult>> invoke);
 
         /// <summary>
         /// Wraps a function that invokes a client-side hub method.

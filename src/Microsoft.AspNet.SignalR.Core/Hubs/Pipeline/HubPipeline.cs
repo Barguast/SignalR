@@ -34,7 +34,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
             get { return _pipeline.Value; }
         }
 
-        public Task<object> Invoke(IHubIncomingInvokerContext context)
+        public Task<HubMethodResult> Invoke(IHubIncomingInvokerContext context)
         {
             return Pipeline.Invoke(context);
         }
@@ -72,7 +72,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
         private class ComposedPipeline
         {
 
-            public Func<IHubIncomingInvokerContext, Task<object>> Invoke;
+            public Func<IHubIncomingInvokerContext, Task<HubMethodResult>> Invoke;
             public Func<IHub, Task> Connect;
             public Func<IHub, Task> Reconnect;
             public Func<IHub, Task> Disconnect;
@@ -83,7 +83,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
             public ComposedPipeline(Stack<IHubPipelineModule> modules)
             {
                 // This wouldn't look nearly as gnarly if C# had better type inference, but now we don't need the ComposedModule or PassThroughModule.
-                Invoke = Compose<Func<IHubIncomingInvokerContext, Task<object>>>(modules, (m, f) => m.BuildIncoming(f))(HubDispatcher.Incoming);
+                Invoke = Compose<Func<IHubIncomingInvokerContext, Task<HubMethodResult>>>(modules, (m, f) => m.BuildIncoming(f))(HubDispatcher.IncomingWrapped);
                 Connect = Compose<Func<IHub, Task>>(modules, (m, f) => m.BuildConnect(f))(HubDispatcher.Connect);
                 Reconnect = Compose<Func<IHub, Task>>(modules, (m, f) => m.BuildReconnect(f))(HubDispatcher.Reconnect);
                 Disconnect = Compose<Func<IHub, Task>>(modules, (m, f) => m.BuildDisconnect(f))(HubDispatcher.Disconnect);

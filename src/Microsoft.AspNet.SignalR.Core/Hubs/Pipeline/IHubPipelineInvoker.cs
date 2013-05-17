@@ -17,7 +17,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
         /// </summary>
         /// <param name="context">A description of the server-side hub method invocation.</param>
         /// <returns>An asynchronous operation giving the return value of the server-side hub method invocation.</returns>
-        Task<object> Invoke(IHubIncomingInvokerContext context);
+        Task<HubMethodResult> Invoke(IHubIncomingInvokerContext context);
 
         /// <summary>
         /// Invokes a client-side hub method.

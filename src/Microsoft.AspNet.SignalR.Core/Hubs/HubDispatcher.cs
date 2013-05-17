@@ -184,7 +184,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
                                        HubRequest hubRequest,
                                        StateChangeTracker tracker)
         {
-            Task<object> piplineInvocation;
+            Task<HubMethodResult> piplineInvocation;
 
             try
             {
@@ -196,7 +196,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
             }
             catch (Exception ex)
             {
-                piplineInvocation = TaskAsyncHelper.FromError<object>(ex);
+                piplineInvocation = TaskAsyncHelper.FromError<HubMethodResult>(ex);
             }
 
             // Determine if we have a faulted task or not and handle it appropriately.
@@ -256,6 +256,20 @@ namespace Microsoft.AspNet.SignalR.Hubs
         internal static Task Disconnect(IHub hub)
         {
             return hub.OnDisconnected();
+        }
+
+        [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "A faulted task is returned.")]
+        internal static Task<HubMethodResult> IncomingWrapped(IHubIncomingInvokerContext context)
+        {
+            return Incoming(context).ContinueWith<HubMethodResult>((t) =>
+            {
+                if (t.IsFaulted)
+                    return new HubMethodResult(t.Exception, true);
+                else if (t.IsCanceled)
+                    return new HubMethodResult(new TaskCanceledException(), true);
+                else
+                    return new HubMethodResult(t.Result, false);
+            });
         }
 
         [SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "A faulted task is returned.")]
@@ -434,14 +448,18 @@ namespace Microsoft.AspNet.SignalR.Hubs
             }
         }
 
-        private Task ProcessResponse(StateChangeTracker tracker, object result, HubRequest request, Exception error)
+        private Task ProcessResponse(StateChangeTracker tracker, HubMethodResult result, HubRequest request, Exception error)
         {
             var hubResult = new HubResponse
             {
                 State = tracker.GetChanges(),
-                Result = result,
                 Id = request.Id,
             };
+
+            if (result.IsError)
+                hubResult.Error = result.Result;
+            else
+                hubResult.Result = result.Result;
 
             if (error != null)
             {

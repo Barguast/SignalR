@@ -23,7 +23,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
         /// </summary>
         /// <param name="invoke">A function that invokes a server-side hub method.</param>
         /// <returns>A wrapped function that invokes a server-side hub method.</returns>
-        public virtual Func<IHubIncomingInvokerContext, Task<object>> BuildIncoming(Func<IHubIncomingInvokerContext, Task<object>> invoke)
+        public virtual Func<IHubIncomingInvokerContext, Task<HubMethodResult>> BuildIncoming(Func<IHubIncomingInvokerContext, Task<HubMethodResult>> invoke)
         {
             return context =>
             {
@@ -34,7 +34,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
                                           .Catch(ex => OnIncomingError(ex, context));
                 }
 
-                return TaskAsyncHelper.FromResult<object>(null);
+                return TaskAsyncHelper.FromResult<HubMethodResult>(null);
             };
         }
 
@@ -291,7 +291,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
         /// <param name="result">The return value of the server-side hub method</param>
         /// <param name="context">A description of the server-side hub method invocation.</param>
         /// <returns>The possibly new or updated return value of the server-side hub method</returns>
-        protected virtual object OnAfterIncoming(object result, IHubIncomingInvokerContext context)
+        protected virtual HubMethodResult OnAfterIncoming(HubMethodResult result, IHubIncomingInvokerContext context)
         {
             return result;
         }

@@ -79,7 +79,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
             });
         }
 
-        public override Func<IHubIncomingInvokerContext, Task<object>> BuildIncoming(Func<IHubIncomingInvokerContext, Task<object>> invoke)
+        public override Func<IHubIncomingInvokerContext, Task<HubMethodResult>> BuildIncoming(Func<IHubIncomingInvokerContext, Task<HubMethodResult>> invoke)
         {
             return base.BuildIncoming(context =>
             {
@@ -115,7 +115,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
                 }
                 
                 // Send error back to the client
-                return TaskAsyncHelper.FromError<object>(
+                return TaskAsyncHelper.FromError<HubMethodResult>(
                     new NotAuthorizedException(String.Format(CultureInfo.CurrentCulture, Resources.Error_CallerNotAuthorizedToInvokeMethodOn,
                                                              context.MethodDescriptor.Name,
                                                              context.MethodDescriptor.Hub.Name)));

@@ -34,7 +34,7 @@ namespace Microsoft.AspNet.SignalR.Hubs
         /// The exception that occurs as a result of invoking the hub method.
         /// </summary>
         [JsonProperty("E", NullValueHandling = NullValueHandling.Ignore)]
-        public string Error { get; set; }
+        public object Error { get; set; }
 
         /// <summary>
         /// The stack trace of the exception that occurs as a result of invoking the hub method.
