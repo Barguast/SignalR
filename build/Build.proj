@@ -219,7 +219,7 @@
              Condition=" '$(OS)' == 'Windows_NT'"/>
   </Target>
 
-  <Target Name="AnalyzeLogs" DependsOnTargets="RunFunctionalTests">
+  <Target Name="AnalyzeLogs">
     <Exec Command='powershell -NoProfile -ExecutionPolicy Bypass $(ProjectRoot)\build\AnalyzeLogs.ps1 "$(ProjectArtifactsDir)"' ContinueOnError="true" />
   </Target>
 
@@ -252,7 +252,7 @@
     <OnError ExecuteTargets="KillIISExpress" Condition=" '$(OS)' == 'Windows_NT'" />
   </Target>
 
-  <Target Name="RunFunctionalTests" DependsOnTargets="BuildNetFunctionalTests">
+  <Target Name="RunFunctionalTests" DependsOnTargets="BuildNetFunctionalTests" AfterTargets="AnalyzeLogs">
     <xunit Assembly="$(ProjectArtifactsDir)\Microsoft.AspNet.SignalR.FunctionalTests\bin\Microsoft.AspNet.SignalR.FunctionalTests.dll"
            Xml="$(TestResultsPath)\Microsoft.AspNet.SignalR.FunctionalTests.XunitResults.xml"
            Verbose="true" />
